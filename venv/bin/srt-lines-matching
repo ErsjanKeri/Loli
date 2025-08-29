@@ -1,4 +1,4 @@
-#!/Users/timotos/Desktop/TUM/Loli/venv/bin/python
+#!/Users/ersibesi/Desktop/VDG/loli/venv/bin/python3.13
 
 """Filter subtitles that match or don't match a particular pattern."""
 
