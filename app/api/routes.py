@@ -2,7 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
 from app.models.video import VideoRequest, VideoResponse, VideoStatus
 from app.services.storage import VideoStorage, video_storage
-from app.services.script_generator import ScriptGenerator
+from app.services.ai_orchestrator import AIOrchestrator
 from app.services.video_processor import VideoProcessor
 from app.api.dependencies import get_video_storage, get_script_generator, get_video_processor
 from app.core.config import settings
@@ -22,7 +22,7 @@ async def generate_video_task(
         model: str,
         voice: str,
         storage: VideoStorage,
-        script_generator: ScriptGenerator,
+        script_generator: AIOrchestrator,
         video_processor: VideoProcessor
 ):
     """Background task for video generation"""
@@ -32,18 +32,17 @@ async def generate_video_task(
         logger.debug(f"[{video_id}] Model: {model}, Voice: {voice}")
 
         # Update status: generating script
-        logger.info(f"[{video_id}] Step 1/3: Starting script generation")
+        logger.info(f"[{video_id}] Step 1/3: Generating explanation and script via pipeline")
         storage.update_video(
             video_id,
             status=VideoStatus.GENERATING_SCRIPT,
-            message="Generating Manim script...",
+            message="Running LLM pipeline (explanation → refinement → script → validation)...",
             progress=25
         )
 
-        # Generate script with selected model - now async (NO FALLBACK)
-        logger.debug(f"[{video_id}] Calling script generator with model: {model}...")
-        script_content = await script_generator.generate_script(prompt, model)
-        logger.info(f"[{video_id}] ✅ Script generated successfully ({len(script_content)} chars)")
+        logger.debug(f"[{video_id}] Calling AI Orchestrator pipeline with model: {model}...")
+        script_content = await script_generator.generate_video_content(prompt, model)
+        logger.info(f"[{video_id}] ✅ Pipeline produced script ({len(script_content)} chars)")
         logger.debug(f"[{video_id}] Script preview: {script_content[:200]}{'...' if len(script_content) > 200 else ''}")
 
         storage.update_video(video_id, script_content=script_content, progress=40)
@@ -64,7 +63,7 @@ async def generate_video_task(
         video_metadata = {
             'original_question': prompt,
             'model_used': model,
-            'voice_used': voice
+            'voice_used': voice,
         }
         
         # Update status: uploading to S3
@@ -77,7 +76,7 @@ async def generate_video_task(
         
         video_path, s3_url = await video_processor.process_video(script_content, video_id, video_metadata)
         logger.info(f"[{video_id}] ✅ Video rendered successfully: {video_path}")
-        
+
         # Determine final status based on S3 upload success
         if s3_url:
             final_status = VideoStatus.COMPLETED
@@ -117,7 +116,7 @@ async def create_video(
         request: VideoRequest,
         background_tasks: BackgroundTasks,
         storage: VideoStorage = Depends(get_video_storage),
-        script_generator: ScriptGenerator = Depends(get_script_generator),
+        script_generator: AIOrchestrator = Depends(get_script_generator),
         video_processor: VideoProcessor = Depends(get_video_processor)
 ):
     """Generate educational video from prompt"""
@@ -139,7 +138,7 @@ async def create_video(
         generate_video_task,
         video_id,
         request.prompt,
-        request.model or "claude-3-5-sonnet-v2",
+        request.model or "claude-3-7-sonnet",
         request.voice or "Joanna",
         storage,
         script_generator,

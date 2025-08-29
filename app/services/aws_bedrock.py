@@ -18,63 +18,58 @@ class BedrockService:
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
         )
         
-        # Model IDs for eu-west-3 region (using inference profiles)
+        # Reverted to original in-repo defaults; can be overridden by env variables below
         self.model_ids = {
-            'claude-3-5-sonnet': 'eu.anthropic.claude-3-5-sonnet-20240620-v1:0',
-            'claude-3-5-sonnet-v2': 'eu.anthropic.claude-3-5-sonnet-20240620-v1:0',  # Same as above
-            'claude-3-7-sonnet': 'eu.anthropic.claude-3-7-sonnet-20250219-v1:0',     # Claude 3.7 Sonnet
-            'claude-4-sonnet': 'eu.anthropic.claude-sonnet-4-20250514-v1:0',         # Claude 4 Sonnet!
-            'claude-3-sonnet': 'eu.anthropic.claude-3-sonnet-20240229-v1:0',
-            'claude-3-haiku': 'eu.anthropic.claude-3-haiku-20240307-v1:0',
+            'claude-4-sonnet': 'us.anthropic.claude-sonnet-4-20250514-v1:0',
+            'claude-opus-4': 'us.anthropic.claude-opus-4-20250514-v1:0',
+            'claude-opus-4-1': 'us.anthropic.claude-opus-4-1-20250805-v1:0',
+            'claude-3-7-sonnet': 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+            'claude-3-5-sonnet-v2': 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+            'claude-3-5-haiku': 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
+            'claude-3-sonnet': 'us.anthropic.claude-3-sonnet-20240229-v1:0',
         }
 
-    async def generate_script(self, prompt: str, model: str) -> str:
-        """Generate Manim script using specified Bedrock model"""
+    async def model_call(self, prompt: str, model: str) -> str:
+        """Generic Bedrock call: accepts a prepared user prompt and returns text content."""
         try:
             model_id = self.model_ids.get(model)
             if not model_id:
                 raise ValueError(f"Unsupported model: {model}")
-            
-            logger.info(f"🤖 Calling AWS Bedrock ({model}) for script generation...")
-            
-            # Build the enhanced prompt (same as current implementation)
-            enhanced_prompt = self._build_manim_prompt(prompt)
-            
-            # Format request based on model family
-            if model.startswith('claude'):
-                body = self._format_claude_request(enhanced_prompt)
-            elif model.startswith('llama'):
-                body = self._format_llama_request(enhanced_prompt)
-            elif model.startswith('amazon-titan'):
-                body = self._format_titan_request(enhanced_prompt)
-            elif model.startswith('cohere'):
-                body = self._format_cohere_request(enhanced_prompt)
-            elif model.startswith('ai21'):
-                body = self._format_ai21_request(enhanced_prompt)
-            elif model.startswith('mistral'):
-                body = self._format_mistral_request(enhanced_prompt)
-            else:
-                raise ValueError(f"Unknown model family for: {model}")
-            
-            # Make async call to Bedrock
+            logger.info(f"🤖 Calling AWS Bedrock ({model})...")
+            body = self.format_model_request(model, prompt)
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
-                self._call_bedrock_sync,
+                self._call_bedrock_sync, 
                 model_id,
                 body
             )
-            
-            # Extract content based on model family
-            script_content = self._extract_content(response, model)
-            
-            logger.info(f"✅ Bedrock {model} generated script ({len(script_content)} chars)")
-            return script_content
-            
+            text = self._extract_content(response, model)
+            logger.info(f"✅ Bedrock {model} response ({len(text)} chars)")
+            return text
         except Exception as e:
-            logger.error(f"❌ Bedrock generation failed: {e}")
+            logger.error(f"❌ Bedrock call failed: {e}")
             raise ScriptGenerationError(f"Bedrock generation failed: {str(e)}")
-
+    
+    def format_model_request(self, model: str, model_request: str) -> str:
+        """Process the output from the Bedrock model"""
+        # Format request based on model family
+        if model.startswith('claude'):
+            body = self._format_claude_request(model_request)
+        elif model.startswith('llama'):
+            body = self._format_llama_request(model_request)
+        elif model.startswith('amazon-titan'):
+            body = self._format_titan_request(model_request)
+        elif model.startswith('cohere'):
+            body = self._format_cohere_request(model_request)
+        elif model.startswith('ai21'):
+            body = self._format_ai21_request(model_request)
+        elif model.startswith('mistral'):
+            body = self._format_mistral_request(model_request)
+        else:
+            raise ValueError(f"Unknown model family for: {model}")
+        return body
+    
     def _call_bedrock_sync(self, model_id: str, body: Dict) -> Dict:
         """Synchronous call to Bedrock (runs in executor)"""
         response = self.client.invoke_model(
@@ -160,10 +155,78 @@ class BedrockService:
             raise ValueError(f"Unknown response format for model: {model}")
 
 
+    def _natural_language_explanation(self, prompt: str) -> str:
+        """Build a natural language explanation for the prompt"""
+        return f"""
+        You are an expert educator specializing in creating clear, step-by-step explanations of technical concepts. Your task is to explain the following technical term or concept: {prompt}
+
+        EXPLANATION REQUIREMENTS:
+        1. STRUCTURE: Organize your explanation in a logical, progressive sequence
+        2. CLARITY: Use simple, accessible language that avoids unnecessary jargon
+        3. EXAMPLES: Provide concrete, real-world examples that illustrate each step
+        4. VISUAL THINKING: Include analogies or comparisons that help visualize the concept
+        5. BUILDING BLOCKS: Start with fundamental concepts and gradually build complexity
+
+        FORMAT GUIDELINES:
+        - Begin with a brief, clear definition
+        - Break down the concept into 3-5 logical steps
+        - For each step, provide a simple example or analogy
+        - Use everyday objects or situations when possible
+        - End with a practical application or summary
+
+        EXAMPLE STRUCTURE:
+        1. "What is [concept]?" - Simple definition
+        2. "Step 1: [First fundamental aspect]" - With concrete example
+        3. "Step 2: [Second aspect]" - With relatable analogy
+        4. "Step 3: [How it works]" - With practical demonstration
+        5. "Real-world application or analogy" - Where you might encounter this or how it could be imagined or drawn 
+
+        TONE: Friendly, patient, and encouraging. Assume the reader is intelligent but new to this concept.
+
+        Return ONLY the natural language explanation following this structure, no explanations or markdown formatting.
+        """
+    
+    def _verify_natural_language_explanation(self, prompt: str) -> str:
+        """Verify the natural language explanation is correct"""
+        return f"""
+        You are an expert educational content reviewer. Analyze this explanation for weak points and improve it: {prompt}
+
+        FIND AND FIX:
+        - Logical errors, contradictions, or gaps
+        - Factual inaccuracies or unclear language
+        - Poor examples or weak analogies
+        - Missing information or incomplete explanations
+        - Structural problems or poor organization
+        - Inappropriate complexity level
+        - Unclear or confusing statements
+
+        IMPROVE TO:
+        - Clear, logical progression from simple to complex
+        - Accurate technical information with helpful examples
+        - Accessible language with concrete analogies
+        - Complete coverage with visual descriptions
+        - Engaging tone suitable for video scripts
+
+        CRITICAL REQUIREMENT: You MUST return ONLY a REFINED AND IMPROVED VERSION of the original explanation that addresses all identified issues. This refined version should be:
+
+        - Logically structured and coherent
+        - Technically accurate and up-to-date
+        - Clear and accessible to the target audience
+        - Rich with relevant examples and analogies
+        - Visually descriptive for video script generation
+        - Engaging and well-paced
+        - Complete and comprehensive
+        - Ready for immediate use in educational content
+
+        RETURN ONLY THE REFINED EXPLANATION TEXT - no analysis, no markdown, no additional commentary.
+        """
+    
+
+    # TODO: Add a prompt builder for the Bedrock models
     def _build_manim_prompt(self, prompt: str) -> str:
         """Build enhanced prompt for Manim script generation (PROVEN ORIGINAL VERSION - SAFER)"""
         return f"""
-        Create a complete Manim script that explains: {prompt}
+        Create a complete Manim script that visually shows the following concept that is explained in the natural language explanation: {prompt}
 
         CRITICAL REQUIREMENTS:
         - Use the latest Manim syntax (from manim import *)
@@ -247,7 +310,7 @@ Return ONLY the fixed Python code, no explanations or markdown.
 """
         
         try:
-            validated_script = await self.generate_script(validation_prompt, model)
+            validated_script = await self.model_call(validation_prompt, model)
             logger.info(f"✅ Bedrock script validation completed")
             return validated_script
             
@@ -296,7 +359,7 @@ Return ONLY the complete transformed Python code with voiceover integration, no 
 """
         
         try:
-            voiceover_script = await self.generate_script(voiceover_prompt, model)
+            voiceover_script = await self.model_call(voiceover_prompt, model)
             logger.info(f"✅ Bedrock voiceover integration completed")
             return voiceover_script
             

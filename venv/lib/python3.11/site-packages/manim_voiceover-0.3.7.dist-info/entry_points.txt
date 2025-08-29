@@ -1,0 +1,7 @@
+[console_scripts]
+manim_render_translation=manim_voiceover.translate.render:main
+manim_translate=manim_voiceover.translate.translate:main
+
+[manim.plugins]
+manim_voiceover=manim_voiceover
+

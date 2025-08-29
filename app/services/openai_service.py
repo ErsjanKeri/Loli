@@ -14,38 +14,27 @@ class OpenAIService:
             api_key=settings.OPENAI_API_KEY
         )
 
-    async def generate_script(self, prompt: str) -> str:
-        """Generate Manim script using ChatGPT-5"""
+    async def model_call(self, user_prompt: str, system_prompt: Optional[str] = None, model: str = "gpt-5") -> str:
+        """Generic OpenAI chat completion call returning content only."""
         try:
-            logger.info(f"🤖 Calling OpenAI ChatGPT-5 for script generation...")
-            
-            # Build the enhanced prompt (same as Bedrock)
-            enhanced_prompt = self._build_manim_prompt(prompt)
-            
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": user_prompt})
+
             response = await self.client.chat.completions.create(
-                model="gpt-5",  # GPT-5 model name for 2025
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self._get_system_prompt()
-                    },
-                    {
-                        "role": "user",
-                        "content": enhanced_prompt
-                    }
-                ],
-                max_completion_tokens=4000,  # GPT-5 uses max_completion_tokens instead of max_tokens
-                # GPT-5 only supports default temperature=1 and top_p=1
+                model=model,
+                messages=messages,
+                max_completion_tokens=4000,
             )
-            
-            script_content = response.choices[0].message.content
-            
-            logger.info(f"✅ OpenAI ChatGPT-5 generated script ({len(script_content)} chars)")
-            return script_content
-            
+            return response.choices[0].message.content
         except Exception as e:
-            logger.error(f"❌ OpenAI generation failed: {e}")
-            raise ScriptGenerationError(f"OpenAI generation failed: {str(e)}")
+            logger.error(f"OpenAI model_call failed: {e}")
+            raise ScriptGenerationError(f"OpenAI call failed: {str(e)}")
+
+    # Deprecated: use AIOrchestrator.generate_video_content instead
+    # async def generate_script(self, prompt: str) -> str:
+    #     pass
 
     def _get_system_prompt(self) -> str:
         return """You are an expert Manim script generator specializing in educational content.
@@ -145,21 +134,14 @@ SCRIPT TO FIX:
 
 Return ONLY the fixed Python code, no explanations or markdown.
 """
-        
         try:
-            response = await self.client.chat.completions.create(
+            fixed_script = await self.model_call(
+                user_prompt=validation_prompt,
+                system_prompt="Fix Manim scripts to be executable. Return only clean Python code.",
                 model="gpt-5",
-                messages=[
-                    {"role": "system", "content": "Fix Manim scripts to be executable. Return only clean Python code."},
-                    {"role": "user", "content": validation_prompt}
-                ],
-                max_completion_tokens=4000,
             )
-            
-            fixed_script = response.choices[0].message.content
             logger.info(f"✅ Script validation completed")
             return fixed_script
-            
         except Exception as e:
             logger.warning(f"Script validation failed: {e}, using original script")
             return script_content
@@ -203,21 +185,14 @@ EXISTING SCRIPT TO TRANSFORM:
 
 Return ONLY the complete transformed Python code with voiceover integration, no explanations or markdown.
 """
-        
         try:
-            response = await self.client.chat.completions.create(
+            voiceover_script = await self.model_call(
+                user_prompt=voiceover_prompt,
+                system_prompt="Transform Manim scripts to use AWS Polly voiceover. Use 'from app.services.aws_polly import create_polly_service' for TTS integration.",
                 model="gpt-5",
-                messages=[
-                    {"role": "system", "content": "Transform Manim scripts to use AWS Polly voiceover. Use 'from app.services.aws_polly import create_polly_service' for TTS integration."},
-                    {"role": "user", "content": voiceover_prompt}
-                ],
-                max_completion_tokens=4000,
             )
-            
-            voiceover_script = response.choices[0].message.content
             logger.info(f"✅ Voiceover integration completed")
             return voiceover_script
-            
         except Exception as e:
             logger.warning(f"Voiceover integration failed: {e}, using original script")
             return script_content

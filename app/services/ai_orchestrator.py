@@ -20,61 +20,79 @@ class AIOrchestrator:
         self.bedrock = BedrockService()
         self.openai = OpenAIService()
 
-    async def generate_script(self, prompt: str, model: str) -> str:
-        """
-        Generate Manim script using specified model.
-        
-        Args:
-            prompt: Educational content prompt
-            model: Model name (from BEDROCK_MODELS or 'gpt-5')
-            
-        Returns:
-            Generated Manim script content
-        """
+    async def generate_video_content(self, question: str, model: str) -> dict:
+        """Four-stage LLM pipeline per new specs: initial explanation -> refinement -> script -> validation."""
         try:
-            logger.info(f"🎯 AI Orchestrator: Generating script with {model}")
-            
-            # Route to appropriate service based on model
-            if model == 'gpt-5':
-                # OpenAI ChatGPT-5
-                script_content = await self.openai.generate_script(prompt)
-            elif model in settings.BEDROCK_MODELS:
-                # AWS Bedrock models
-                script_content = await self.bedrock.generate_script(prompt, model)
-            else:
-                raise ValueError(f"Unsupported model: {model}")
-            
-            # Clean and validate the script
-            cleaned_script = self._clean_script(script_content)
-            
-            # Validate the script 
-            validated_script = await self._validate_script(cleaned_script, model)
-            
-            # Add voiceover 
-            final_script = await self._add_voiceover_functionality(validated_script, prompt, model)
-            
-            logger.info(f"✅ AI Orchestrator: Final script ready ({len(final_script)} chars)")
+            logger.info(f"🎯 Pipeline start ({model}) for question")
+
+            # Stage 1: Initial natural language explanation
+            stage1_prompt = self._prompt_initial_explanation(question)
+            initial_explanation = await self._llm(model, stage1_prompt)
+
+            # Stage 2: Refinement of the explanation
+            stage2_prompt = self._prompt_refine_explanation(initial_explanation)
+            refined_explanation = await self._llm("gpt-5", stage2_prompt)
+
+            # Stage 3: Generate Manim script from refined explanation
+            stage3_prompt = self._prompt_generate_script(refined_explanation)
+            manim_script = await self._llm("claude-4-sonnet", stage3_prompt)
+
+            # Stage 4: Validate/fix Manim script
+            stage4_prompt = self._prompt_validate_script(manim_script)
+            validated_script = await self._llm("claude-4-sonnet", stage4_prompt)
+
+            # Optional voiceover can be applied later as needed
+            logger.info(f"✅ Pipeline completed: explanation ({len(refined_explanation)} chars), script ({len(validated_script)} chars)")
+
+            # Add voiceover and return only final script
+            final_script = await self._add_voiceover_functionality(validated_script, question, model)
             return final_script
-            
         except Exception as e:
-            logger.error(f"❌ AI Orchestrator failed: {e}")
-            raise ScriptGenerationError(f"Script generation failed: {str(e)}")
+            logger.error(f"❌ Pipeline failed: {e}")
+            raise ScriptGenerationError(f"Pipeline failed: {str(e)}")
+
+    async def _llm(self, model: str, user_prompt: str, system_prompt: Optional[str] = None) -> str:
+        """DRY unified inference: route to OpenAI or Bedrock with prepared prompts."""
+        if model == 'gpt-5':
+            return await self.openai.model_call(user_prompt=user_prompt, system_prompt=system_prompt, model="gpt-5")
+        elif model in settings.BEDROCK_MODELS:
+            # Bedrock ignores system prompt in current impl; include in user prompt if provided
+            merged_prompt = f"{system_prompt}\n\n{user_prompt}" if system_prompt else user_prompt
+            return await self.bedrock.model_call(merged_prompt, model)
+        else:
+            raise ValueError(f"Unsupported model: {model}")
+
+    def _prompt_initial_explanation(self, question: str) -> str:
+        # Use concise educator system converted to user prompt for cross-provider parity
+        return  self.bedrock._natural_language_explanation(question)
+
+    def _prompt_refine_explanation(self, explanation: str) -> str:
+        return  self.bedrock._verify_natural_language_explanation(explanation)
+
+    def _prompt_generate_script(self, refined_explanation: str) -> str:
+        return  self.bedrock._build_manim_prompt(refined_explanation)
+
+    def _prompt_validate_script(self, script_content: str) -> str:
+        return f"""
+Review this Manim script and fix any issues to make it executable. Return ONLY the corrected Python code.
+
+SCRIPT TO FIX:
+```python
+{script_content}
+```
+"""
 
     async def _validate_script(self, script_content: str, model: str) -> str:
         """Validate and fix the script using the same model that generated it"""
         try:
             logger.info(f"🔍 Validating script with {model}...")
-            
-            # Use the new validation methods from individual services
             if model == 'gpt-5':
                 validated_script = await self.openai.validate_script(script_content)
             else:
                 validated_script = await self.bedrock.validate_script(script_content, model)
-            
             cleaned_validated = self._clean_script(validated_script)
             logger.info(f"✅ Script validation completed")
             return cleaned_validated
-            
         except Exception as e:
             logger.warning(f"Script validation failed: {e}, using original script")
             return script_content
@@ -215,3 +233,11 @@ class AIOrchestrator:
         )
         
         return script_content
+
+    def _clean_script_like(self, text: str, strip_only: bool = False) -> str:
+        import re
+        if strip_only:
+            return text.strip()
+        t = re.sub(r'```python\s*\n', '', text)
+        t = re.sub(r'```\s*$', '', t, flags=re.MULTILINE)
+        return t.strip()
