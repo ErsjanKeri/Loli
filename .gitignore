@@ -43,3 +43,7 @@ output/
 
 # Docker
 *.pid
+
+# Python virtual environments
+venv/
+.venv/
