@@ -18,14 +18,14 @@ class BedrockService:
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
         )
         
+        # Model IDs for eu-west-3 region (using inference profiles)
         self.model_ids = {
-            'claude-sonnet-4': 'us.anthropic.claude-sonnet-4-20250514-v1:0',
-            'claude-opus-4': 'us.anthropic.claude-opus-4-20250514-v1:0',
-            'claude-opus-4-1': 'us.anthropic.claude-opus-4-1-20250805-v1:0',
-            'claude-3-7-sonnet': 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
-            'claude-3-5-sonnet-v2': 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-            'claude-3-5-haiku': 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
-            'claude-3-sonnet': 'us.anthropic.claude-3-sonnet-20240229-v1:0',
+            'claude-3-5-sonnet': 'eu.anthropic.claude-3-5-sonnet-20240620-v1:0',
+            'claude-3-5-sonnet-v2': 'eu.anthropic.claude-3-5-sonnet-20240620-v1:0',  # Same as above
+            'claude-3-7-sonnet': 'eu.anthropic.claude-3-7-sonnet-20250219-v1:0',     # Claude 3.7 Sonnet
+            'claude-4-sonnet': 'eu.anthropic.claude-sonnet-4-20250514-v1:0',         # Claude 4 Sonnet!
+            'claude-3-sonnet': 'eu.anthropic.claude-3-sonnet-20240229-v1:0',
+            'claude-3-haiku': 'eu.anthropic.claude-3-haiku-20240307-v1:0',
         }
 
     async def generate_script(self, prompt: str, model: str) -> str:

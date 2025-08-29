@@ -27,15 +27,14 @@ class Settings(BaseSettings):
     # OpenAI Configuration (NEW)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
-    # Available Models (FIXED - matching your actual AWS Bedrock access)
+    # Available Models (Updated for eu-west-3 region)
     BEDROCK_MODELS: list = [
-        "claude-sonnet-4",
-        "claude-opus-4",
-        "claude-opus-4-1", 
+        "claude-3-5-sonnet",
+        "claude-3-5-sonnet-v2", 
         "claude-3-7-sonnet",
-        "claude-3-5-sonnet-v2",
-        "claude-3-5-haiku",
-        "claude-3-sonnet"
+        "claude-4-sonnet",
+        "claude-3-sonnet",
+        "claude-3-haiku"
     ]
     
     # AWS Polly Settings (NEW)
