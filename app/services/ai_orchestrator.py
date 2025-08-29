@@ -20,7 +20,7 @@ class AIOrchestrator:
         self.bedrock = BedrockService()
         self.openai = OpenAIService()
 
-    async def generate_video_content(self, question: str, model: str) -> dict:
+    async def generate_video_content(self, question: str, model: str, voice: str = "Joanna") -> dict:
         """Four-stage LLM pipeline per new specs: initial explanation -> refinement -> script -> validation."""
         try:
             logger.info(f"🎯 Pipeline start ({model}) for question")
@@ -37,15 +37,19 @@ class AIOrchestrator:
             stage3_prompt = self._prompt_generate_script(refined_explanation)
             manim_script = await self._llm("claude-4-sonnet", stage3_prompt)
 
-            # Stage 4: Validate/fix Manim script
+            # Stage 4: Validate/fix Manim scriptß
             stage4_prompt = self._prompt_validate_script(manim_script)
             validated_script = await self._llm("claude-4-sonnet", stage4_prompt)
 
+            # Stage 5: Visual validation for overlaying shapes, numbers, and pictures
+            stage5_prompt = self._prompt_validate_visual_elements(validated_script)
+            visual_validated_script = await self._llm("claude-4-sonnet", stage5_prompt)
+
             # Optional voiceover can be applied later as needed
-            logger.info(f"✅ Pipeline completed: explanation ({len(refined_explanation)} chars), script ({len(validated_script)} chars)")
+            logger.info(f"✅ Pipeline completed: explanation ({len(refined_explanation)} chars), script ({len(visual_validated_script)} chars)")
 
             # Add voiceover and return only final script
-            final_script = await self._add_voiceover_functionality(validated_script, question, model)
+            final_script = await self._add_voiceover_functionality(visual_validated_script, question, model, voice)
             return final_script
         except Exception as e:
             logger.error(f"❌ Pipeline failed: {e}")
@@ -74,39 +78,89 @@ class AIOrchestrator:
 
     def _prompt_validate_script(self, script_content: str) -> str:
         return f"""
-Review this Manim script and fix any issues to make it executable. Return ONLY the corrected Python code.
+    Review this Manim script and fix any issues to make it executable. Return ONLY the corrected Python code.
 
-SCRIPT TO FIX:
+    CRITICAL FIXES NEEDED:
+    - Ensure all imports are correct (from manim import *)
+    - Fix any syntax errors
+    - Make sure the class inherits from Scene properly
+    - Fix any undefined variables or functions
+    - Ensure all colors used are valid Manim colors
+    - CRITICAL: Fix animation on groups - NEVER use Create(group), Write(group), or FadeIn(group)
+    - For groups use: self.play(*[Create(obj) for obj in group]) or animate each member individually
+    - Make sure all objects are properly defined before use
+    - Ensure proper indentation
+    - IMPORTANT: Fix vector normalization - use np.linalg.norm() instead of .normalize()
+    - Import numpy as np if needed for vector operations
+    - Complete any incomplete lines of code
+
+    SCRIPT TO FIX:
+    ```python
+    {script_content}
+    ```
+
+    Return ONLY the fixed Python code, no explanations or markdown.
+    """
+
+    def _prompt_validate_visual_elements(self, script_content: str) -> str:
+        return f"""
+Review this Manim script specifically for VISUAL COMPOSITION and ELEMENT OVERLAPPING issues. Fix any problems with shapes, numbers, pictures, and text positioning. Return ONLY the corrected Python code.
+
+CRITICAL VISUAL VALIDATION CHECKS:
+
+1. **OVERLAPPING ELEMENTS**:
+   - Check if shapes, text, or objects overlap unintentionally
+   - Ensure numbers and labels are clearly visible and not hidden behind shapes
+   - Fix any z-index issues with layering of visual elements
+   - Use proper spacing between elements
+
+2. **POSITIONING AND ALIGNMENT**:
+   - Verify all elements are positioned within the visible frame
+   - Check that text labels are properly aligned with their corresponding shapes
+   - Ensure mathematical expressions and numbers are clearly readable
+   - Fix any elements that appear outside the screen boundaries
+
+3. **VISUAL HIERARCHY**:
+   - Ensure important elements (numbers, labels, key shapes) are prominently displayed
+   - Check that background elements don't overshadow foreground content
+   - Verify proper contrast between text and background colors
+   - Fix any visual clutter or confusing arrangements
+
+4. **SHAPE AND OBJECT CLARITY**:
+   - Ensure geometric shapes are clearly defined and visible
+   - Check that lines, arrows, and connectors are properly positioned
+   - Verify that mathematical diagrams maintain their logical structure
+   - Fix any distorted or improperly scaled elements
+
+5. **TEXT AND NUMBERING**:
+   - Ensure all text is readable and properly sized
+   - Check that mathematical expressions render correctly
+   - Verify that step numbers or labels are clearly visible
+   - Fix any text that overlaps with shapes or other elements
+
+6. **ANIMATION SEQUENCE**:
+   - Check that visual elements appear in logical order
+   - Ensure animations don't cause temporary overlapping issues
+   - Verify that elements remain visible throughout their intended duration
+   - Fix any timing issues that cause visual confusion
+
+SCRIPT TO VALIDATE:
 ```python
 {script_content}
 ```
-"""
 
-    async def _validate_script(self, script_content: str, model: str) -> str:
-        """Validate and fix the script using the same model that generated it"""
-        try:
-            logger.info(f"🔍 Validating script with {model}...")
-            if model == 'gpt-5':
-                validated_script = await self.openai.validate_script(script_content)
-            else:
-                validated_script = await self.bedrock.validate_script(script_content, model)
-            cleaned_validated = self._clean_script(validated_script)
-            logger.info(f"✅ Script validation completed")
-            return cleaned_validated
-        except Exception as e:
-            logger.warning(f"Script validation failed: {e}, using original script")
-            return script_content
+Return ONLY the visually optimized Python code with improved positioning, spacing, and element arrangement."""
 
-    async def _add_voiceover_functionality(self, script_content: str, original_prompt: str, model: str) -> str:
+    async def _add_voiceover_functionality(self, script_content: str, original_prompt: str, model: str, voice: str = "Joanna") -> str:
         """Add voiceover functionality to the script using individual services"""
         try:
             logger.info(f"🎙️ Adding voiceover functionality with {model}...")
             
             # Use the new voiceover methods from individual services
             if model == 'gpt-5':
-                voiceover_script = await self.openai.add_voiceover_functionality(script_content, original_prompt)
+                voiceover_script = await self.openai.add_voiceover_functionality(script_content, original_prompt, voice)
             else:
-                voiceover_script = await self.bedrock.add_voiceover_functionality(script_content, original_prompt, model)
+                voiceover_script = await self.bedrock.add_voiceover_functionality(script_content, original_prompt, model, voice)
             
             cleaned_voiceover = self._clean_script(voiceover_script)
             
@@ -127,7 +181,7 @@ SCRIPT TO FIX:
             
         except Exception as e:
             logger.warning(f"Voiceover integration failed: {e}, using basic structure")
-            return self._add_basic_voiceover_structure(script_content)
+            return self._add_basic_voiceover_structure(script_content, voice)
 
     def _clean_script(self, script_content: str) -> str:
         """Clean and validate the generated script (same as current implementation)"""
@@ -203,7 +257,7 @@ SCRIPT TO FIX:
         
         return script_content
 
-    def _add_basic_voiceover_structure(self, script_content: str) -> str:
+    def _add_basic_voiceover_structure(self, script_content: str, voice: str = "Joanna") -> str:
         """Add basic voiceover structure if AI integration fails"""
         import re
         
@@ -214,11 +268,11 @@ SCRIPT TO FIX:
         # Convert Scene to VoiceoverScene
         script_content = re.sub(r'class\s+(\w+)\s*\(\s*Scene\s*\):', r'class \1(VoiceoverScene):', script_content)
         
-        # Add speech service initialization
-        speech_service_init = '''        # Initialize speech service
+        # Add speech service initialization with dynamic voice
+        speech_service_init = f'''        # Initialize speech service
         self.set_speech_service(
             create_polly_service(
-                voice="Joanna",
+                voice="{voice}",
                 style="friendly"
             )
         )
@@ -233,11 +287,3 @@ SCRIPT TO FIX:
         )
         
         return script_content
-
-    def _clean_script_like(self, text: str, strip_only: bool = False) -> str:
-        import re
-        if strip_only:
-            return text.strip()
-        t = re.sub(r'```python\s*\n', '', text)
-        t = re.sub(r'```\s*$', '', t, flags=re.MULTILINE)
-        return t.strip()

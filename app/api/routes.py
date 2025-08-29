@@ -40,8 +40,8 @@ async def generate_video_task(
             progress=25
         )
 
-        logger.debug(f"[{video_id}] Calling AI Orchestrator pipeline with model: {model}...")
-        script_content = await script_generator.generate_video_content(prompt, model)
+        logger.debug(f"[{video_id}] Calling AI Orchestrator pipeline with model: {model}, voice: {voice}...")
+        script_content = await script_generator.generate_video_content(prompt, model, voice)
         logger.info(f"[{video_id}] ✅ Pipeline produced script ({len(script_content)} chars)")
         logger.debug(f"[{video_id}] Script preview: {script_content[:200]}{'...' if len(script_content) > 200 else ''}")
 
@@ -120,6 +120,20 @@ async def create_video(
         video_processor: VideoProcessor = Depends(get_video_processor)
 ):
     """Generate educational video from prompt"""
+    
+    # Validate model selection
+    if request.model and request.model not in settings.ALL_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid model '{request.model}'. Available models: {', '.join(settings.ALL_MODELS)}"
+        )
+    
+    # Validate voice selection
+    if request.voice and request.voice not in settings.AVAILABLE_VOICES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid voice '{request.voice}'. Available voices: {', '.join(settings.AVAILABLE_VOICES)}"
+        )
 
     # Check if we've hit the concurrent limit
     if storage.get_active_video_count() >= settings.MAX_CONCURRENT_VIDEOS:
@@ -138,7 +152,7 @@ async def create_video(
         generate_video_task,
         video_id,
         request.prompt,
-        request.model or "claude-3-7-sonnet",
+        request.model or "claude-4-sonnet",
         request.voice or "Joanna",
         storage,
         script_generator,
@@ -246,7 +260,7 @@ async def list_videos(
         storage: VideoStorage = Depends(get_video_storage)
 ):
     """List all videos, optionally filtered by status"""
-    videos = storage.list_videos(status)
+    videos = await storage.list_videos(status)
 
     return {
         "videos": [
@@ -256,6 +270,7 @@ async def list_videos(
                 "message": v.message,
                 "created_at": v.created_at,
                 "progress": v.progress,
+                "prompt": v.prompt,
                 "download_url": f"/api/v1/videos/{v.video_id}/download" if v.status in [VideoStatus.COMPLETED, VideoStatus.COMPLETED_WITHOUT_S3] else None,
                 "s3_url": v.s3_url
             }
@@ -311,14 +326,46 @@ async def health_check():
 
 @router.get("/models")
 async def get_available_models():
-    """Get list of available AI models"""
+    """Get list of available AI models (2025 lineup)"""
+    # Model display names for frontend
+    model_display_names = {
+        "titan-text-g1-express": "Titan Text G1 - Express",
+        "nova-pro": "Nova Pro",
+        "claude-4-sonnet": "Claude Sonnet 4",
+        "llama-3-2-3b-instruct": "Llama 3.2 3B Instruct",
+        "mixtral-8x7b-instruct": "Mixtral 8x7B Instruct",
+        "gpt-5": "GPT-5"
+    }
+    
     return {
         "bedrock_models": settings.BEDROCK_MODELS,
-        "openai_models": ["gpt-5"],
-        "all_models": settings.BEDROCK_MODELS + ["gpt-5"],
-        "default_model": "claude-3-5-sonnet-v2"
+        "openai_models": settings.OPENAI_MODELS,
+        "all_models": settings.ALL_MODELS,
+        "model_display_names": model_display_names,
+        "default_model": "claude-4-sonnet"
     }
 
+
+@router.get("/config")
+async def get_config():
+    """Get configuration for frontend (models and voices)"""
+    # Model display names for frontend
+    model_display_names = {
+        "titan-text-g1-express": "Titan Text G1 - Express",
+        "nova-pro": "Nova Pro",
+        "claude-4-sonnet": "Claude Sonnet 4",
+        "llama-3-2-3b-instruct": "Llama 3.2 3B Instruct",
+        "mixtral-8x7b-instruct": "Mixtral 8x7B Instruct",
+        "gpt-5": "GPT-5"
+    }
+    
+    return {
+        "models": settings.ALL_MODELS,
+        "model_display_names": model_display_names,
+        "default_model": "claude-4-sonnet",
+        "voices": settings.AVAILABLE_VOICES,
+        "default_voice": settings.DEFAULT_VOICE
+    }
 
 @router.get("/voices")
 async def get_available_voices():

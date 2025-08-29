@@ -18,14 +18,22 @@ class BedrockService:
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
         )
         
-        # Reverted to original in-repo defaults; can be overridden by env variables below
+        # 2025 Model ID mappings for eu-west-3 region
         self.model_ids = {
-            'claude-3-5-sonnet': 'eu.anthropic.claude-3-5-sonnet-20240620-v1:0',
-            'claude-3-5-sonnet-v2': 'eu.anthropic.claude-3-5-sonnet-20240620-v1:0',  # Same as above
-            'claude-3-7-sonnet': 'eu.anthropic.claude-3-7-sonnet-20250219-v1:0',     # Claude 3.7 Sonnet
-            'claude-4-sonnet': 'eu.anthropic.claude-sonnet-4-20250514-v1:0',         # Claude 4 Sonnet!
-            'claude-3-sonnet': 'eu.anthropic.claude-3-sonnet-20240229-v1:0',
-            'claude-3-haiku': 'eu.anthropic.claude-3-haiku-20240307-v1:0',
+            # Amazon Titan
+            'titan-text-g1-express': 'amazon.titan-text-express-v1',
+            
+            # Amazon Nova
+            'nova-pro': 'amazon.nova-pro-v1:0',
+            
+            # Anthropic Claude
+            'claude-4-sonnet': 'eu.anthropic.claude-sonnet-4-20250514-v1:0',
+            
+            # Meta Llama
+            'llama-3-2-3b-instruct': 'meta.llama3-2-3b-instruct-v1:0',
+            
+            # Mistral
+            'mixtral-8x7b-instruct': 'mistral.mixtral-8x7b-instruct-v0:1'
         }
 
     async def model_call(self, prompt: str, model: str) -> str:
@@ -220,8 +228,6 @@ class BedrockService:
         RETURN ONLY THE REFINED EXPLANATION TEXT - no analysis, no markdown, no additional commentary.
         """
     
-
-    # TODO: Add a prompt builder for the Bedrock models
     def _build_manim_prompt(self, prompt: str) -> str:
         """Build enhanced prompt for Manim script generation (PROVEN ORIGINAL VERSION - SAFER)"""
         return f"""
@@ -317,7 +323,7 @@ Return ONLY the fixed Python code, no explanations or markdown.
             logger.warning(f"Bedrock script validation failed: {e}, using original script")
             return script_content
 
-    async def add_voiceover_functionality(self, script_content: str, original_prompt: str, model: str) -> str:
+    async def add_voiceover_functionality(self, script_content: str, original_prompt: str, model: str, voice: str = "Joanna") -> str:
         """Add voiceover functionality using Bedrock model (COPIED from script_generator.py + AWS POLLY)"""
         voiceover_prompt = f"""
 Transform this Manim script to use voiceover functionality. The original educational topic was: "{original_prompt}"
@@ -327,7 +333,7 @@ CRITICAL REQUIREMENTS FOR VOICEOVER INTEGRATION:
 2. Import: from manim_voiceover import VoiceoverScene
 3. Import: from app.services.aws_polly import create_polly_service
 4. Add speech service initialization in construct method:
-   self.set_speech_service(create_polly_service(voice="Joanna", style="friendly"))
+   self.set_speech_service(create_polly_service(voice="{voice}", style="friendly"))
 5. Wrap animation sequences with voiceover context managers
 6. Use this pattern: with self.voiceover(text="Narration text here") as tracker:
 7. Sync animations with voiceover duration using tracker.duration

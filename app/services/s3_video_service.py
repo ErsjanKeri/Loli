@@ -256,3 +256,72 @@ class S3VideoService:
     def _delete_object_sync(self, s3_key: str) -> None:
         """Synchronous S3 object deletion"""
         self.s3_client.delete_object(Bucket=self.bucket_name, Key=s3_key)
+
+    async def list_all_videos(self) -> list:
+        """
+        List all videos in the S3 bucket with their metadata.
+        
+        Returns:
+            List of dictionaries containing video info from S3
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            s3_videos = await loop.run_in_executor(
+                None,
+                self._list_videos_sync
+            )
+            
+            logger.info(f"📋 Found {len(s3_videos)} videos in S3 bucket")
+            return s3_videos
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to list S3 videos: {e}")
+            return []
+
+    def _list_videos_sync(self) -> list:
+        """Synchronous S3 video listing with metadata"""
+        videos = []
+        
+        try:
+            # List all objects in bucket
+            response = self.s3_client.list_objects_v2(Bucket=self.bucket_name)
+            
+            if 'Contents' not in response:
+                return videos
+                
+            for obj in response['Contents']:
+                key = obj['Key']
+                
+                # Only process .mp4 files
+                if not key.endswith('.mp4'):
+                    continue
+                    
+                # Extract video_id from filename
+                video_id = key.replace('.mp4', '')
+                
+                # Get object metadata
+                metadata_response = self.s3_client.head_object(
+                    Bucket=self.bucket_name, 
+                    Key=key
+                )
+                
+                metadata = metadata_response.get('Metadata', {})
+                
+                # Create video info from S3 data
+                video_info = {
+                    'video_id': video_id,
+                    'key': key,
+                    'last_modified': obj['LastModified'],
+                    'size': obj['Size'],
+                    'metadata': metadata,
+                    's3_url': self.get_public_url(video_id)
+                }
+                
+                videos.append(video_info)
+                
+            logger.debug(f"🔍 Processed {len(videos)} video files from S3")
+            return videos
+            
+        except Exception as e:
+            logger.error(f"❌ Error listing S3 videos: {e}")
+            return []

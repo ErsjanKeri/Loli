@@ -32,10 +32,6 @@ class OpenAIService:
             logger.error(f"OpenAI model_call failed: {e}")
             raise ScriptGenerationError(f"OpenAI call failed: {str(e)}")
 
-    # Deprecated: use AIOrchestrator.generate_video_content instead
-    # async def generate_script(self, prompt: str) -> str:
-    #     pass
-
     def _get_system_prompt(self) -> str:
         return """You are an expert Manim script generator specializing in educational content.
         Generate clean, executable Python code that creates engaging mathematical animations.
@@ -146,7 +142,7 @@ Return ONLY the fixed Python code, no explanations or markdown.
             logger.warning(f"Script validation failed: {e}, using original script")
             return script_content
 
-    async def add_voiceover_functionality(self, script_content: str, original_prompt: str) -> str:
+    async def add_voiceover_functionality(self, script_content: str, original_prompt: str, voice: str = "Joanna") -> str:
         """Third GPT-5 call to add voiceover functionality (COPIED from script_generator.py + AWS POLLY)"""
         voiceover_prompt = f"""
 Transform this Manim script to use voiceover functionality. The original educational topic was: "{original_prompt}"
@@ -156,7 +152,7 @@ CRITICAL REQUIREMENTS FOR VOICEOVER INTEGRATION:
 2. Import: from manim_voiceover import VoiceoverScene
 3. Import: from app.services.aws_polly import create_polly_service
 4. Add speech service initialization in construct method:
-   self.set_speech_service(create_polly_service(voice="Joanna", style="friendly"))
+   self.set_speech_service(create_polly_service(voice="{voice}", style="friendly"))
 5. Wrap animation sequences with voiceover context managers
 6. Use this pattern: with self.voiceover(text="Narration text here") as tracker:
 7. Sync animations with voiceover duration using tracker.duration

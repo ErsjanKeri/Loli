@@ -31,28 +31,56 @@ class Settings(BaseSettings):
     # OpenAI Configuration (NEW)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
-    # Available Models (Updated for eu-west-3 region)
+    # Available Models (2025 Updated Lineup)
     BEDROCK_MODELS: list = [
-        "claude-3-5-sonnet",
-        "claude-3-5-sonnet-v2", 
-        "claude-3-7-sonnet",
+        "titan-text-g1-express",
+        "nova-pro", 
         "claude-4-sonnet",
-        "claude-3-sonnet",
-        "claude-3-haiku"
+        "llama-3-2-3b-instruct",
+        "mixtral-8x7b-instruct"
     ]
     
-    # AWS Polly Settings (NEW)
+    # OpenAI Models (Special handling)
+    OPENAI_MODELS: list = [
+        "gpt-5"
+    ]
+    
+    # All available models for frontend
+    ALL_MODELS: list = BEDROCK_MODELS + OPENAI_MODELS
+    
+    # AWS Polly Settings - 2025 Enhanced Neural Voices
     DEFAULT_VOICE: str = "Joanna"
-    AVAILABLE_VOICES: list = ["Joanna", "Matthew", "Ruth", "Stephen"]
+    AVAILABLE_VOICES: list = [
+        # US English Neural Voices
+        "Joanna",      # Female, warm and friendly
+        "Matthew",     # Male, professional and clear
+        "Kimberly",    # Female, young and energetic
+        "Justin",      # Male, confident and engaging
+        "Joey",        # Male, casual and approachable
+        "Ivy",         # Female, calm and sophisticated
+        "Kendra",      # Female, authoritative and clear
+        "Kevin",       # Male, dynamic and expressive
+        "Salli",       # Female, gentle and reassuring
+        "Ruth",        # Female, mature and wise
+        "Stephen",     # Male, distinguished and articulate
+        # British English Neural Voices
+        "Amy",         # Female, British accent
+        "Emma",        # Female, British accent, youthful
+        "Brian",       # Male, British accent
+        "Arthur",      # Male, British accent, mature
+        # Additional International Voices
+        "Olivia",      # Female, Australian accent
+        "Aria",        # Female, New Zealand accent
+    ]
 
     # Storage Settings - Fixed for Windows compatibility
     VIDEOS_DIR: str = "generated_videos"
     TEMP_DIR: str = get_temp_dir()
 
     # Video Settings
-    MAX_VIDEO_DURATION: int = 30  # 0.5 minutes - content duration limit
-    MANIM_PROCESSING_TIMEOUT: int = 300  # 5 minutes for regular videos
-    CLEANUP_INTERVAL: int = 3600  # 1 hour
+    MAX_VIDEO_DURATION: int = 30  # Content duration limit in seconds
+    MANIM_PROCESSING_TIMEOUT: int = 300  # Processing timeout in seconds
+    CLEANUP_INTERVAL: int = 3600  # Cleanup interval in seconds
 
     # Performance Settings
     MAX_CONCURRENT_VIDEOS: int = 2  # Reduced further for voiceover stability

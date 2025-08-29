@@ -82,16 +82,17 @@
 3. **Step 2 - GPT-5 Refinement**: GPT-5 refines explanation for clarity, accuracy, and intuitiveness
 4. **Step 3 - Claude-4 Script Generation**: Claude-4 converts refined explanation to Manim script
 5. **Step 4 - Claude-4 Script Validation**: Claude-4 validates and fixes the generated script
-6. **Step 5 - Local Video Processing**: Manim processes script with AWS Polly voiceover (using Step 1 text)
-7. **Step 6 - S3 Upload**: Video uploaded to "loli" S3 bucket with metadata
-8. **Step 7 - Response**: API returns public S3 URL with video metadata
+6. **Step 5 - Claude-4 Visual Validation**: Claude-4 optimizes visual composition, overlapping elements, and positioning
+7. **Step 6 - Local Video Processing**: Manim processes script with AWS Polly voiceover (using Step 1 text)
+8. **Step 7 - S3 Upload**: Video uploaded to "loli" S3 bucket with metadata
+9. **Step 8 - Response**: API returns public S3 URL with video metadata
 
 ## 📦 Technical Specifications
 
 ### 1. Multi-Stage AI Processing Pipeline
 
 #### Purpose and Goals
-Implement a sophisticated 4-stage AI processing pipeline that ensures high-quality educational content through multiple model interactions, culminating in Claude-4 generated Manim scripts.
+Implement a sophisticated 5-stage AI processing pipeline that ensures high-quality educational content through multiple model interactions, culminating in Claude-4 generated and visually optimized Manim scripts.
 
 #### Stage 1: Initial Explanation Generation
 - **Input**: User question + selected model
@@ -123,8 +124,20 @@ Implement a sophisticated 4-stage AI processing pipeline that ensures high-quali
 - **Validation Areas**:
   - Syntax correctness
   - Manim API compatibility
-  - Visual flow optimization
-- **Output**: Final validated Manim script
+  - Basic script structure
+- **Output**: Syntax-validated Manim script
+
+#### Stage 5: Claude-4 Visual Validation
+- **Input**: Syntax-validated Manim script from Stage 4
+- **Process**: Claude-4 Sonnet optimizes visual composition and element positioning
+- **Validation Areas**:
+  - Overlapping elements detection and correction
+  - Text and number positioning optimization
+  - Shape alignment and spacing adjustments
+  - Visual hierarchy and clarity improvements
+  - Animation sequence visual flow
+  - Element visibility and readability
+- **Output**: Final visually optimized Manim script
 
 ### 2. Enhanced Video Processing with S3 Integration
 
@@ -169,13 +182,14 @@ class VideoStatus(str, Enum):
 ```
 
 #### Progress Tracking
-- **Stage 1**: 0-20% (Initial explanation)
-- **Stage 2**: 20-40% (GPT-5 refinement)
-- **Stage 3**: 40-60% (Claude-4 script generation)
-- **Stage 4**: 60-70% (Claude-4 script validation)
-- **Stage 5**: 70-90% (Local video rendering)
-- **Stage 6**: 90-95% (S3 upload)
-- **Stage 7**: 100% (Completed)
+- **Stage 1**: 0-15% (Initial explanation)
+- **Stage 2**: 15-30% (GPT-5 refinement)
+- **Stage 3**: 30-45% (Claude-4 script generation)
+- **Stage 4**: 45-55% (Claude-4 script validation)
+- **Stage 5**: 55-65% (Claude-4 visual validation)
+- **Stage 6**: 65-85% (Local video rendering)
+- **Stage 7**: 85-95% (S3 upload)
+- **Stage 8**: 100% (Completed)
 
 ### 4. New API Endpoints
 

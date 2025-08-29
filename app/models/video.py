@@ -15,7 +15,7 @@ class VideoStatus(str, Enum):
 class VideoRequest(BaseModel):
     prompt: str = Field(..., min_length=10, max_length=10000, description="Description of the educational video to generate")
     # NEW: Model selection
-    model: Optional[str] = Field(default="claude-3-5-sonnet-v2", description="AI model to use for script generation")
+    model: Optional[str] = Field(default="claude-4-sonnet", description="AI model to use for script generation")
     # NEW: Voice selection  
     voice: Optional[str] = Field(default="Joanna", description="Voice to use for narration")
 
@@ -38,3 +38,4 @@ class VideoInfo(BaseModel):
     script_content: Optional[str] = None
     error_details: Optional[str] = None
     progress: int = 0
+    prompt: Optional[str] = None      # Original user prompt

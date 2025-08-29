@@ -171,7 +171,7 @@ class VideoProcessor:
             start_time = time.time()
 
             # Use a shorter timeout for initial testing
-            timeout = min(settings.MANIM_PROCESSING_TIMEOUT, 300)  # Max 5 minutes for testing
+            timeout = 1200  # Max 10 minutes for testing
 
             result = subprocess.run(
                 cmd,

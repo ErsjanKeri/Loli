@@ -66,12 +66,13 @@ loli/
 
 ## 🚀 Multi-Stage AI Processing Pipeline
 
-The system uses a sophisticated 4-stage AI processing pipeline:
+The system uses a sophisticated 5-stage AI processing pipeline:
 
 1. **Initial Explanation** - User-selected model (Claude-3.5-Sonnet, Claude-4, etc.)
 2. **GPT-5 Refinement** - Improves clarity, fixes logic, updates deprecated info
 3. **Claude-4 Script Generation** - Converts explanation to Manim script
 4. **Claude-4 Script Validation** - Validates and fixes script issues
+5. **Claude-4 Visual Validation** - Optimizes visual composition and element positioning
 
 ## 🛠️ Local Development
 
@@ -245,12 +246,12 @@ All configuration is managed through environment variables:
 ### Processing Stages
 
 1. **QUEUED** → **GENERATING_INITIAL_EXPLANATION** → **REFINING_EXPLANATION** 
-2. **GENERATING_SCRIPT** → **VALIDATING_SCRIPT** → **RENDERING_VIDEO** 
-3. **UPLOADING_TO_S3** → **COMPLETED**
+2. **GENERATING_SCRIPT** → **VALIDATING_SCRIPT** → **VISUAL_VALIDATION**
+3. **RENDERING_VIDEO** → **UPLOADING_TO_S3** → **COMPLETED**
 
 ### Features
 
-- **Multi-Model AI Pipeline**: 4-stage processing with different AI models
+- **Multi-Model AI Pipeline**: 5-stage processing with different AI models
 - **Error Handling**: Comprehensive error handling with custom exceptions
 - **Real-time Progress**: Detailed status tracking through all stages
 - **Cloud Storage**: S3 integration with public URLs and metadata
