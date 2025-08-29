@@ -1,6 +1,8 @@
 # 🎓 Loli Video Generator
 
-# PLEASE WATCH THE generated_videos THEY ARE AWESOME! 
+# PLEASE WATCH THE VIDEOS ON THE FOLDER generated_videos THEY ARE AWESOME! 
+[📁 Google Drive Video Samples](https://drive.google.com/drive/folders/1dQJN2b7sUfcxUSUXl_dxyhR2YsC9xrLf)
+
 
 An advanced educational video generation platform powered by multiple AI models including AWS Bedrock and OpenAI.
 

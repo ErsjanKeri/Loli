@@ -2,6 +2,7 @@ app/venv/
 # Python
 app/__pycache__/
 
+generated_videos/
 # Virtual environments
 app/venv/
 app/.env/
@@ -11,6 +12,7 @@ app/*.egg-info/
 app/dist/
 app/build/
 
+venv/
 # OS files
 .DS_Store
 Thumbs.db
@@ -42,7 +44,3 @@ output/
 
 # Docker
 *.pid
-
-# Python virtual environments
-venv/
-.venv/
