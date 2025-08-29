@@ -5,10 +5,12 @@ import os
 import re
 from app.core.config import settings
 from app.core.exceptions import VideoProcessingError
+from app.services.s3_video_service import S3VideoService, S3UploadError
 import logging
 import asyncio
 import concurrent.futures
 import platform
+from typing import Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,9 @@ class VideoProcessor:
         self.temp_dir = settings.TEMP_DIR
         self.videos_dir = settings.VIDEOS_DIR
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+        
+        # Initialize S3 service
+        self.s3_service = S3VideoService()
 
         # Fix temp directory for Windows
         if platform.system() == "Windows":
@@ -27,8 +32,19 @@ class VideoProcessor:
         os.makedirs(self.temp_dir, exist_ok=True)
         os.makedirs(self.videos_dir, exist_ok=True)
 
-    async def process_video(self, script_content: str, video_id: str) -> str:
-        """Process Manim script and generate video"""
+    async def process_video(self, script_content: str, video_id: str, metadata: Optional[dict] = None) -> Tuple[str, Optional[str]]:
+        """
+        Process Manim script and generate video with S3 upload.
+        
+        Args:
+            script_content: Generated Manim script
+            video_id: Unique video identifier
+            metadata: Video metadata for S3 (optional)
+            
+        Returns:
+            Tuple of (local_path, s3_url)
+            s3_url will be None if S3 upload fails
+        """
         temp_dir = None
         try:
             # Create temporary directory with proper path handling
@@ -60,9 +76,31 @@ class VideoProcessor:
             # Move to permanent location
             logger.debug(f"Moving video from {video_path} to permanent location...")
             final_path = self._move_to_permanent_location(video_path, video_id)
+            logger.info(f"✅ Local video saved: {final_path}")
 
-            logger.info(f"🎉 Video processing completed: {final_path}")
-            return final_path
+            # Upload to S3
+            s3_url = None
+            try:
+                logger.info(f"📤 Starting S3 upload for {video_id}...")
+                
+                # Prepare metadata for S3
+                s3_metadata = metadata or {}
+                if 'video_id' not in s3_metadata:
+                    s3_metadata['video_id'] = video_id
+                
+                s3_url = await self.s3_service.upload_video(final_path, video_id, s3_metadata)
+                logger.info(f"✅ S3 upload successful: {s3_url}")
+                
+            except S3UploadError as e:
+                logger.warning(f"⚠️ S3 upload failed for {video_id}: {e}")
+                # S3 upload failed, but local video generation succeeded
+                # This will result in COMPLETED_WITHOUT_S3 status
+            except Exception as e:
+                logger.error(f"❌ Unexpected S3 error for {video_id}: {e}")
+                # Don't raise - local video succeeded
+
+            logger.info(f"🎉 Video processing completed: {final_path} (S3: {'✅' if s3_url else '❌'})")
+            return final_path, s3_url
 
         except Exception as e:
             logger.error(f"❌ Video processing failed: {e}")

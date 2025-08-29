@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
 
+    # S3 Configuration (NEW)
+    S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "loli-bucket")
+    S3_REGION: str = os.getenv("S3_REGION", "eu-west-3")  # Same as AWS_REGION for consistency
+
     # OpenAI Configuration (NEW)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 

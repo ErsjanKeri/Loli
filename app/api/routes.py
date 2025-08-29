@@ -57,18 +57,45 @@ async def generate_video_task(
             progress=50
         )
 
-        # Process video - now async
+        # Process video - now async with S3 upload
         logger.debug(f"[{video_id}] Calling video processor...")
-        video_path = await video_processor.process_video(script_content, video_id)
+        
+        # Prepare metadata for S3
+        video_metadata = {
+            'original_question': prompt,
+            'model_used': model,
+            'voice_used': voice
+        }
+        
+        # Update status: uploading to S3
+        storage.update_video(
+            video_id,
+            status=VideoStatus.UPLOADING_TO_S3,
+            message="Uploading video to S3...",
+            progress=85
+        )
+        
+        video_path, s3_url = await video_processor.process_video(script_content, video_id, video_metadata)
         logger.info(f"[{video_id}] ✅ Video rendered successfully: {video_path}")
+        
+        # Determine final status based on S3 upload success
+        if s3_url:
+            final_status = VideoStatus.COMPLETED
+            final_message = "Video generated and uploaded successfully"
+            logger.info(f"[{video_id}] ✅ S3 upload successful: {s3_url}")
+        else:
+            final_status = VideoStatus.COMPLETED_WITHOUT_S3
+            final_message = "Video generated successfully (S3 upload failed)"
+            logger.warning(f"[{video_id}] ⚠️ S3 upload failed, but local video available")
 
         # Update status: completed
         logger.info(f"[{video_id}] Step 3/3: Finalizing")
         storage.update_video(
             video_id,
-            status=VideoStatus.COMPLETED,
-            message="Video generated successfully",
+            status=final_status,
+            message=final_message,
             video_path=video_path,
+            s3_url=s3_url,
             progress=100
         )
 
@@ -137,8 +164,9 @@ async def get_video_status(
     """Get video generation status"""
     video_info = storage.get_video(video_id)
 
+    # Legacy video_url for backward compatibility
     video_url = None
-    if video_info.status == VideoStatus.COMPLETED:
+    if video_info.status in [VideoStatus.COMPLETED, VideoStatus.COMPLETED_WITHOUT_S3]:
         video_url = f"/api/v1/videos/{video_id}/download"
 
     return VideoResponse(
@@ -146,9 +174,9 @@ async def get_video_status(
         status=video_info.status,
         message=video_info.message,
         video_url=video_url,
+        s3_url=video_info.s3_url,  # New S3 URL field
         created_at=video_info.created_at,
-        progress=video_info
-        .progress
+        progress=video_info.progress
     )
 
 
@@ -157,10 +185,10 @@ async def download_video(
         video_id: str,
         storage: VideoStorage = Depends(get_video_storage)
 ):
-    """Download generated video"""
+    """Download generated video (legacy endpoint - prefer S3 URL)"""
     video_info = storage.get_video(video_id)
 
-    if video_info.status != VideoStatus.COMPLETED:
+    if video_info.status not in [VideoStatus.COMPLETED, VideoStatus.COMPLETED_WITHOUT_S3]:
         raise HTTPException(
             status_code=400,
             detail="Video is not ready for download"
@@ -229,7 +257,8 @@ async def list_videos(
                 "message": v.message,
                 "created_at": v.created_at,
                 "progress": v.progress,
-                "download_url": f"/api/v1/videos/{v.video_id}/download" if v.status == VideoStatus.COMPLETED else None
+                "download_url": f"/api/v1/videos/{v.video_id}/download" if v.status in [VideoStatus.COMPLETED, VideoStatus.COMPLETED_WITHOUT_S3] else None,
+                "s3_url": v.s3_url
             }
             for v in videos
         ],

@@ -97,7 +97,7 @@ class VideoStorage:
     def get_active_video_count(self) -> int:
         """Get count of videos currently being processed"""
         with self._lock:
-            active_statuses = {VideoStatus.QUEUED, VideoStatus.GENERATING_SCRIPT, VideoStatus.RENDERING_VIDEO}
+            active_statuses = {VideoStatus.QUEUED, VideoStatus.GENERATING_SCRIPT, VideoStatus.RENDERING_VIDEO, VideoStatus.UPLOADING_TO_S3}
             return sum(1 for v in self._videos.values() if v.status in active_statuses)
 
     def get_stats(self) -> Dict:
