@@ -2,11 +2,11 @@
 
 ## 🏗️ Architecture Overview
 
-### Current vs. Target Architecture
+### **Updated Multi-Model Educational Video Generation Architecture**
 
-#### **🚀 UPDATED: Lambda-First Architecture**
+#### **🚀 NEW: Multi-Stage AI Processing with S3 Storage**
 
-#### Current Architecture
+#### Previous Architecture (Deprecated)
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   FastAPI       │    │   Google Gemini  │    │   Azure TTS     │
@@ -20,234 +20,418 @@
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
-#### Corrected Lambda-First Architecture
+#### New Multi-Stage AI Processing Architecture
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Lovable       │    │   FastAPI        │    │ AWS Bedrock +   │
-│   React App     │────│   Orchestrator   │────│ OpenAI ChatGPT-5│
+│   React         │    │   FastAPI        │    │ User Selected   │
+│   Frontend      │────│   Orchestrator   │────│ Model (Step 1)  │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        │
-                                │                        ▼
-                                │               ┌─────────────────┐
-                                │               │  Generated      │
-                                │               │  Manim Script   │
-                                │               └─────────────────┘
-                                ▼                        │
-                    ┌─────────────────┐                 │
-                    │   SQS Queue     │◄────────────────┘
-                    │   Video Jobs    │
-                    └─────────────────┘
-                                │
-                                ▼
-                    ┌─────────────────┐    ┌─────────────────┐
-                    │   AWS Lambda    │────│   DynamoDB      │
-                    │   Video Gen     │    │   Job Status    │
-                    └─────────────────┘    └─────────────────┘
-                                │                     ▲
-                                ▼                     │
-                    ┌─────────────────┐               │
-                    │  AWS Polly +    │               │
-                    │  Manim Engine   │               │
-                    └─────────────────┘               │
-                                │                     │
-                                ▼                     │
-                    ┌─────────────────┐               │
-                    │  S3 Storage +   │───────────────┘
-                    │  CloudWatch     │
-                    └─────────────────┘
+         │                       │                       │
+         │                       │                       ▼
+         │                       │              ┌─────────────────┐
+         │                       │              │ Initial         │
+         │                       │              │ Explanation     │
+         │                       │              └─────────────────┘
+         │                       │                       │
+         │                       │                       ▼
+         │                       │              ┌─────────────────┐
+         │                       │              │   GPT-5         │
+         │                       │              │ Refinement      │
+         │                       │              └─────────────────┘
+         │                       │                       │
+         │                       │                       ▼
+         │                       │              ┌─────────────────┐
+         │                       │              │  Claude-4       │
+         │                       │              │ Manim Script    │
+         │                       │              └─────────────────┘
+         │                       │                       │
+         │                       │                       ▼
+         │                       │              ┌─────────────────┐
+         │                       │              │  Claude-4       │
+         │                       │              │Script Validation│
+         │                       │              └─────────────────┘
+         │                       │                       │
+         │                       ▼                       ▼
+         │              ┌─────────────────┐    ┌─────────────────┐
+         │              │   Local Manim   │    │   AWS Polly     │
+         │              │   Processing    │────│   Voiceover     │
+         │              └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       ▼                       │
+         │              ┌─────────────────┐              │
+         │              │  Local Video    │◄─────────────┘
+         │              │  Generation     │
+         │              └─────────────────┘
+         │                       │
+         │                       ▼
+         │              ┌─────────────────┐
+         │              │   S3 Upload     │
+         │              │  "loli" bucket  │
+         │              └─────────────────┘
+         │                       │
+         │                       ▼
+         └──────────────► ┌─────────────────┐
+                         │  Public S3 URL  │
+                         │   Response      │
+                         └─────────────────┘
 ```
 
-**Flow Explanation:**
-1. React Frontend sends video request to FastAPI
-2. FastAPI calls AI models (Bedrock/ChatGPT-5) to generate Manim script
-3. FastAPI submits job with script to SQS queue
-4. Lambda picks up job, processes video with Manim + Polly
-5. Lambda updates DynamoDB with progress and stores video in S3
-6. Frontend polls FastAPI which checks DynamoDB for status updates
-```
+**Complete Flow Explanation:**
+1. **Frontend Request**: React sends video request with user-selected model and voice
+2. **Step 1 - Initial Explanation**: User-selected model generates initial explanation
+3. **Step 2 - GPT-5 Refinement**: GPT-5 refines explanation for clarity, accuracy, and intuitiveness
+4. **Step 3 - Claude-4 Script Generation**: Claude-4 converts refined explanation to Manim script
+5. **Step 4 - Claude-4 Script Validation**: Claude-4 validates and fixes the generated script
+6. **Step 5 - Local Video Processing**: Manim processes script with AWS Polly voiceover (using Step 1 text)
+7. **Step 6 - S3 Upload**: Video uploaded to "loli" S3 bucket with metadata
+8. **Step 7 - Response**: API returns public S3 URL with video metadata
 
 ## 📦 Technical Specifications
 
-### 1. AWS Bedrock Integration
+### 1. Multi-Stage AI Processing Pipeline
 
 #### Purpose and Goals
-Replace the current Google Gemini integration with AWS Bedrock to access multiple large language models through a single API. This gives us access to Claude, Llama, Titan, and other models while staying within the AWS ecosystem.
+Implement a sophisticated 4-stage AI processing pipeline that ensures high-quality educational content through multiple model interactions, culminating in Claude-4 generated Manim scripts.
 
-#### Key Requirements
-- Support for multiple model providers (Anthropic Claude, Meta Llama, Amazon Titan)
-- Model-specific request formatting since each model has different API requirements
-- Intelligent model selection based on prompt complexity and cost considerations
-- Cost tracking and optimization to stay within budget limits
-- Fallback mechanisms if preferred models are unavailable or over budget
+#### Stage 1: Initial Explanation Generation
+- **Input**: User question + selected model
+- **Process**: User-selected model generates initial educational explanation
+- **Models Available**: All current Bedrock models (claude-3-5-sonnet, claude-3-7-sonnet, claude-4-sonnet, etc.)
+- **Output**: Raw educational explanation text
 
-#### Integration Approach
-Create a unified Bedrock service that handles all the different model formats internally, so the rest of the application just asks for a script and gets one back. The service should automatically choose the best model based on the complexity of the educational content requested.
+#### Stage 2: GPT-5 Refinement
+- **Input**: Initial explanation from Stage 1
+- **Process**: GPT-5 refines explanation for:
+  - **Clarity improvement**: Make concepts easier to understand
+  - **Logical error correction**: Fix any logical inconsistencies
+  - **Deprecated information updates**: Ensure accuracy and currency
+  - **Intuitive connections**: Better flow and conceptual linking
+- **Output**: Refined, high-quality explanation text
 
-### 2. Multi-Model AI Orchestrator
+#### Stage 3: Claude-4 Manim Script Generation
+- **Input**: Refined explanation from Stage 2
+- **Process**: Claude-4 Sonnet converts explanation to executable Manim script
+- **Requirements**: 
+  - Visual representation of concepts
+  - Mathematical accuracy
+  - Clear animation sequences
+- **Output**: Manim Python script
 
-#### Purpose and Goals
-Create a smart layer that can call both AWS Bedrock models and OpenAI ChatGPT-5, then intelligently route requests based on content complexity, cost, and model availability. This gives users the best of both worlds.
+#### Stage 4: Claude-4 Script Validation
+- **Input**: Generated Manim script from Stage 3
+- **Process**: Claude-4 Sonnet validates and fixes script issues
+- **Validation Areas**:
+  - Syntax correctness
+  - Manim API compatibility
+  - Visual flow optimization
+- **Output**: Final validated Manim script
 
-#### Key Requirements
-- Support for both AWS Bedrock and OpenAI API calls
-- Smart model selection algorithm that analyzes prompt complexity
-- Cost tracking across all models to prevent budget overruns
-- Model performance comparison and quality scoring
-- Real-time model availability checking
-
-#### Decision Logic
-Simple prompts go to cost-effective models like Llama, complex educational content goes to Claude or ChatGPT-5, and mathematical proofs or advanced topics get routed to the highest quality models regardless of cost.
-
-### 3. AWS Polly Integration
-
-#### Purpose and Goals
-Replace Azure Text-to-Speech with AWS Polly to generate high-quality neural voices for video narration. This keeps everything in the AWS ecosystem and gives us access to better voice options and SSML markup for natural-sounding speech.
-
-#### Key Requirements
-- Support for multiple neural voices with different styles (friendly, professional, educational)
-- SSML markup support for better pronunciation and pacing
-- Multiple language support for international content
-- Integration with the Lambda video processing pipeline
-- Voice selection interface for users to choose their preferred narrator
-
-#### Voice Strategy
-Provide a curated selection of high-quality neural voices that work well for educational content. Include both male and female options with different regional accents. Use SSML to add natural pauses and emphasis for better listening experience.
-
-### 4. OpenAI ChatGPT-5 Integration
+### 2. Enhanced Video Processing with S3 Integration
 
 #### Purpose and Goals
-Integrate OpenAI's latest ChatGPT-5 model as a premium option for generating high-quality educational content. This gives users access to the most advanced AI model available while maintaining the option to use more cost-effective AWS Bedrock models.
+Replace local video storage with AWS S3 integration while maintaining local Manim processing for reliability and performance.
 
-#### Key Requirements
-- Direct integration with OpenAI API for ChatGPT-5 access
-- Specialized system prompts optimized for Manim script generation
-- Cost tracking and usage monitoring since this is the most expensive option
-- Quality comparison metrics against Bedrock models
-- Fallback to Bedrock models if OpenAI API is unavailable
+#### Local Processing Requirements
+- **Manim Rendering**: Keep current local Manim processing (proven working)
+- **AWS Polly Integration**: Use selected voice for voiceover generation
+- **Voiceover Text Source**: Use **Stage 1 initial explanation** as voiceover narration
+- **Temporary Storage**: Use local temp directories for processing
 
-#### Integration Strategy
-Position ChatGPT-5 as the premium option for complex educational content, advanced mathematical concepts, and when users specifically want the highest quality output regardless of cost. Use it for comparison demonstrations in the hackathon demo.
+#### S3 Upload Requirements
+- **Bucket Name**: "loli" (fixed bucket name)
+- **File Naming**: `{video_id}.mp4` (consistent with current system)
+- **Upload Process**: After local video generation, upload to S3
+- **Permissions**: Public read access for direct URL sharing
+- **Metadata Storage**: Include original question and explanation as S3 object metadata
 
-### 5. AWS Lambda Video Processing
+#### Video Response Updates
+- **Return Format**: Public S3 URL instead of local file path
+- **URL Format**: `https://loli.s3.{region}.amazonaws.com/{video_id}.mp4`
+- **Metadata Inclusion**: Original question and refined explanation in response
 
-#### Purpose and Goals
-Replace the current local subprocess-based video processing with pure AWS Lambda functions. This eliminates the need for always-running servers, provides infinite scalability, and creates a true pay-per-use cost model.
-
-#### Key Requirements
-- Complete Manim environment in Lambda with all required dependencies
-- Integration with AWS Polly for voiceover generation within Lambda
-- Automatic scaling to handle multiple video requests simultaneously
-- Progress tracking and status updates via DynamoDB
-- Video storage and delivery through S3 with presigned URLs
-- Error handling and retry mechanisms for failed video generations
-
-#### Processing Flow
-Lambda receives a job from SQS containing the generated Manim script and voice configuration. It sets up a temporary environment, runs Manim to generate the video, adds voiceover using Polly, uploads the final video to S3, and updates DynamoDB with completion status and download URLs.
-
-### 6. SQS Job Queue System
+### 3. Enhanced Status Tracking System
 
 #### Purpose and Goals
-Implement a reliable job queue system that can handle multiple video processing requests without overwhelming the Lambda functions or losing jobs during high traffic periods.
+Provide detailed progress tracking through the multi-stage AI processing pipeline.
 
-#### Key Requirements
-- Message persistence to prevent job loss during system failures
-- Dead letter queue for failed jobs that can be investigated and retried
-- Batch processing capabilities for efficiency
-- Message visibility timeout management to prevent duplicate processing
-- Integration with CloudWatch for monitoring queue depth and processing times
+#### New Status Enumeration
+```python
+class VideoStatus(str, Enum):
+    QUEUED = "queued"
+    GENERATING_INITIAL_EXPLANATION = "generating_initial_explanation"
+    REFINING_EXPLANATION = "refining_explanation" 
+    GENERATING_SCRIPT = "generating_script"
+    VALIDATING_SCRIPT = "validating_script"
+    RENDERING_VIDEO = "rendering_video"
+    UPLOADING_TO_S3 = "uploading_to_s3"
+    COMPLETED = "completed"
+    FAILED = "failed"
+```
 
-#### Queue Strategy
-Use standard SQS queues with appropriate visibility timeouts that match Lambda processing times. Implement dead letter queues for jobs that fail multiple times, allowing for manual investigation and reprocessing.
+#### Progress Tracking
+- **Stage 1**: 0-20% (Initial explanation)
+- **Stage 2**: 20-40% (GPT-5 refinement)
+- **Stage 3**: 40-60% (Claude-4 script generation)
+- **Stage 4**: 60-70% (Claude-4 script validation)
+- **Stage 5**: 70-90% (Local video rendering)
+- **Stage 6**: 90-95% (S3 upload)
+- **Stage 7**: 100% (Completed)
 
-### 7. DynamoDB Job Tracking
+### 4. New API Endpoints
 
-#### Purpose and Goals
-Provide real-time job status tracking that allows users to check on their video generation progress without directly polling Lambda functions or overwhelming the system.
+#### Single Configuration Endpoint
+```
+GET /api/v1/config
+```
 
-#### Key Requirements
-- Real-time status updates (queued, processing, completed, failed)
-- Progress tracking with percentage completion
-- Error message storage for debugging failed jobs
-- Job metadata including creation time, completion time, and processing duration
-- Cost tracking per job for analytics and billing
-- TTL (Time To Live) for automatic cleanup of old job records
+**Response Format:**
+```json
+{
+  "models": [
+    "claude-4-sonnet",
+  ],
+  "voices": [
+    "Joanna",
+    "Matthew", 
+    "Ruth",
+    "Stephen"
+  ]
+}
+```
 
-#### Data Strategy
-Store job records with video_id as the primary key, include all relevant metadata, and use DynamoDB streams to trigger notifications or analytics updates when job status changes.
+#### Updated Video Creation Endpoint
+```
+POST /api/v1/videos
+```
 
-### 8. Lovable React Frontend
+**Request Format:**
+```json
+{
+  "prompt": "Explain the Pythagorean theorem with visual proof",
+  "model": "claude-4-sonnet",
+  "voice": "Joanna"
+}
+```
 
-#### Purpose and Goals
-Create a modern, beautiful, and responsive React application that showcases the platform's capabilities and provides an excellent user experience for creating and managing educational videos.
+**Response Format:**
+```json
+{
+  "video_id": "uuid",
+  "status": "queued",
+  "message": "Video generation started", 
+  "video_url": null,
+  "s3_url": null,
+  "created_at": "timestamp",
+  "progress": 0,
+  "original_question": "Explain the Pythagorean theorem with visual proof",
+  "initial_explanation": null,
+  "refined_explanation": null
+}
+```
 
-#### Key Features Required
-- Video creation form with AI model selection (Bedrock vs ChatGPT-5)
-- Voice selection interface with preview capabilities
-- Real-time progress tracking with live status updates
-- Video gallery with thumbnail previews and download options
-- Cost calculator showing estimated costs vs traditional solutions
-- Processing analytics dashboard showing system performance
-- Model comparison interface for hackathon demonstrations
+#### Enhanced Status Endpoint
+```
+GET /api/v1/videos/{video_id}/status
+```
 
-#### Technical Requirements
-- Responsive design that works on desktop, tablet, and mobile
-- Real-time updates using polling or WebSocket connections
-- Modern UI components with smooth animations and transitions
-- Accessibility compliance for educational use
-- Fast loading times with optimized assets
-- Integration with the FastAPI backend through clean API calls
+**Response Format (Completed):**
+```json
+{
+  "video_id": "uuid",
+  "status": "completed",
+  "message": "Video generated successfully",
+  "video_url": null,
+  "s3_url": "https://loli.s3.eu-west-3.amazonaws.com/{video_id}.mp4",
+  "created_at": "timestamp", 
+  "progress": 100,
+  "original_question": "Explain the Pythagorean theorem with visual proof",
+  "initial_explanation": "The Pythagorean theorem states...",
+  "refined_explanation": "The Pythagorean theorem is a fundamental..."
+}
+```
 
-#### User Experience Goals
-Make video creation feel magical and effortless while providing transparency into the AI model selection and processing pipeline. Users should understand the value of the serverless architecture through clear cost comparisons and performance metrics.
+### 5. AWS Services Integration
 
-### 9. Configuration Management
+#### S3 Bucket Configuration
+- **Bucket Name**: "loli"
+- **Region**: eu-west-3 (consistent with current setup)
+- **Access**: Public read for generated videos
+- **CORS**: Enabled for web frontend access
+- **Versioning**: Disabled (not needed for demo)
+- **Lifecycle**: No automatic deletion (cluttered bucket acceptable)
 
-#### Purpose and Goals
-Centralize all configuration settings for AWS services, AI models, and application behavior in a clean, environment-variable-driven system that works for both development and production.
+#### S3 Object Metadata
+```json
+{
+  "original-question": "User's original question",
+  "initial-explanation": "Stage 1 explanation text",
+  "refined-explanation": "Stage 2 refined text",
+  "model-used": "claude-4-sonnet",
+  "voice-used": "Joanna",
+  "generation-date": "timestamp"
+}
+```
 
-#### Key Configuration Areas
-- AWS service credentials and region settings
-- AI model selection and API keys for both Bedrock and OpenAI
-- Cost management thresholds and budget controls
-- Voice and language preferences for Polly
-- Lambda function settings and timeouts
-- Database and storage configuration
+#### AWS Polly Voice Configuration
+- **Available Voices**: Joanna, Matthew, Ruth, Stephen
+- **Engine**: Neural (when available)
+- **Language**: English (US)
+- **Output Format**: MP3 for Manim integration
 
-#### Environment Strategy
-Use environment variables for all sensitive data like API keys, with sensible defaults for non-sensitive settings. Support both development (.env file) and production (environment variables) deployment patterns.
+### 6. Service Architecture Updates
 
-## 🎯 Implementation Priorities
+#### New AI Orchestrator Design
+```python
+class AIOrchestrator:
+    async def generate_video_content(self, question: str, model: str) -> dict:
+        # Stage 1: Initial explanation with user-selected model
+        initial_explanation = await self.generate_initial_explanation(question, model)
+        
+        # Stage 2: GPT-5 refinement
+        refined_explanation = await self.refine_explanation(initial_explanation)
+        
+        # Stage 3: Claude-4 script generation
+        manim_script = await self.generate_manim_script(refined_explanation)
+        
+        # Stage 4: Claude-4 script validation
+        validated_script = await self.validate_script(manim_script)
+        
+        return {
+            "initial_explanation": initial_explanation,
+            "refined_explanation": refined_explanation,
+            "manim_script": validated_script
+        }
+```
 
-### Phase 1: Foundation 
-**Goal: Get the core AWS integrations working while keeping the current system operational**
+#### S3 Upload Service
+```python
+class S3VideoService:
+    def __init__(self):
+        self.s3_client = boto3.client('s3')
+        self.bucket_name = "loli"
+    
+    async def upload_video(self, video_path: str, video_id: str, metadata: dict) -> str:
+        # Upload video with metadata
+        # Return public S3 URL
+```
 
-1. **AWS Bedrock Integration** - Add multi-model AI capability alongside existing Gemini
-2. **AWS Polly Integration** - Replace Azure TTS with AWS Polly
-3. **Basic Model Selection** - Allow users to choose between AI models
-4. **Configuration Setup** - Environment variables and AWS credentials
+#### Enhanced Video Processor
+```python
+class VideoProcessor:
+    async def process_video(self, script: str, video_id: str, voice: str, voiceover_text: str) -> str:
+        # Generate video with Manim
+        # Add voiceover using AWS Polly
+        # Return local video path for S3 upload
+```
 
-### Phase 2: Lambda Transition
-**Goal: Build and test the Lambda video processing pipeline**
+### 7. Data Models Updates
 
-1. **Lambda Function Development** - Create the serverless video processing function
-2. **SQS Queue Setup** - Implement job queue system
-3. **DynamoDB Integration** - Add job status tracking
-4. **S3 Storage** - Video storage and delivery system
+#### Enhanced VideoRequest
+```python
+class VideoRequest(BaseModel):
+    prompt: str = Field(..., min_length=10, max_length=10000)
+    model: str = Field(..., description="AI model for initial explanation")
+    voice: str = Field(default="Joanna", description="AWS Polly voice")
+```
 
-### Phase 3: Frontend and Polish 
-**Goal: Create beautiful user interface and prepare for demo**
+#### Enhanced VideoResponse  
+```python
+class VideoResponse(BaseModel):
+    video_id: str
+    status: VideoStatus
+    message: str
+    video_url: Optional[str] = None  # Legacy support
+    s3_url: Optional[str] = None     # New S3 URL
+    created_at: datetime
+    progress: int = Field(ge=0, le=100)
+    original_question: str
+    initial_explanation: Optional[str] = None
+    refined_explanation: Optional[str] = None
+```
 
-1. **Lovable React Frontend** - Modern, responsive user interface
-2. **Real-time Status Updates** - Live progress tracking
-3. **Cost Analytics** - Usage dashboards and comparisons
-4. **Demo Preparation** - Impressive showcase content
+### 8. Configuration Updates
 
-### Phase 4: Final Integration 
-**Goal: Replace local processing with Lambda and prepare winning demo**
+#### Environment Variables
+```bash
+# Existing AWS Configuration
+AWS_ACCESS_KEY_ID=xxx
+AWS_SECRET_ACCESS_KEY=xxx  
+AWS_REGION=eu-west-3
 
-1. **Remove Local Processing** - Complete transition to pure Lambda
-2. **Performance Testing** - Ensure system handles multiple concurrent requests
-3. **Demo Content Creation** - Prepare impressive demonstration videos
-4. **Presentation Materials** - Architecture diagrams and talking points
+# New S3 Configuration
+S3_BUCKET_NAME=loli
 
-This specification provides clear goals and requirements for each component without getting bogged down in implementation details. The focus is on understanding what needs to be built and why, leaving the how for the actual implementation phase.
+# Existing AI Model Configuration
+OPENAI_API_KEY=xxx
+
+# Processing Configuration (Keep Local)
+MAX_CONCURRENT_VIDEOS=2
+VIDEO_RETENTION_DAYS=7
+TEMP_DIR=/tmp/manim_videos
+```
+
+#### Settings Class Updates
+```python
+class Settings(BaseSettings):
+    # Existing settings...
+    
+    # S3 Configuration
+    S3_BUCKET_NAME: str = "loli"
+    
+    # Force Claude-4 for script generation
+    SCRIPT_GENERATION_MODEL: str = "claude-4-sonnet"
+    SCRIPT_VALIDATION_MODEL: str = "claude-4-sonnet"
+    REFINEMENT_MODEL: str = "gpt-5"
+    
+    # Available models for initial explanation
+    EXPLANATION_MODELS: list = [
+        "claude-3-5-sonnet",
+        "claude-3-7-sonnet", 
+        "claude-4-sonnet",
+        "claude-3-sonnet",
+        "claude-3-haiku"
+    ]
+```
+
+## 🎯 Implementation Priority
+
+### Phase 1: Core Pipeline Implementation
+1. **Multi-stage AI processing pipeline**
+2. **GPT-5 refinement integration**  
+3. **Claude-4 script generation enforcement**
+4. **Enhanced status tracking**
+
+### Phase 2: S3 Integration
+1. **S3 upload service creation**
+2. **Public URL generation** 
+3. **Metadata storage implementation**
+4. **API response updates**
+
+### Phase 3: Frontend Integration  
+1. **New /api/v1/config endpoint**
+2. **Enhanced status responses**
+3. **S3 URL handling**
+4. **React frontend updates**
+
+### Phase 4: Testing and Polish
+1. **End-to-end testing**
+2. **Error handling refinement**
+3. **Performance optimization**
+4. **Documentation updates**
+
+## 🚫 Removed Components
+
+### Lambda Architecture (Completely Removed)
+- ❌ AWS Lambda functions
+- ❌ SQS job queues  
+- ❌ DynamoDB job tracking
+- ❌ CloudWatch integration
+- ❌ Serverless processing
+
+### Replaced Components
+- ❌ Local video storage → ✅ S3 public URLs
+- ❌ Single model processing → ✅ Multi-stage AI pipeline  
+- ❌ Simple status tracking → ✅ Detailed progress tracking
+- ❌ Basic API responses → ✅ Rich metadata responses
+
+This architecture maintains the proven local processing approach while adding sophisticated AI processing and cloud storage capabilities for a superior educational video generation experience.
