@@ -1,5 +1,7 @@
 # 🎓 Loli Video Generator
 
+# PLEASE WATCH THE generated_videos THEY ARE AWESOME! 
+
 An advanced educational video generation platform powered by multiple AI models including AWS Bedrock and OpenAI.
 
 ## ✨ Features

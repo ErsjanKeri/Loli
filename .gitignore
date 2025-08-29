@@ -2,7 +2,6 @@ app/venv/
 # Python
 app/__pycache__/
 
-generated_videos/
 # Virtual environments
 app/venv/
 app/.env/
