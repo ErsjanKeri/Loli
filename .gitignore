@@ -1,0 +1,45 @@
+app/venv/
+# Python
+app/__pycache__/
+
+
+# Virtual environments
+app/venv/
+app/.env/
+app/.env
+app/.venv/
+app/*.egg-info/
+app/dist/
+app/build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# AWS SAM/Serverless
+.aws-sam/
+.serverless/
+
+# Local storage/output
+output/
+*.mp4
+*.avi
+*.mov
+
+# Ignore secrets and config
+.env
+.env.*
+
+# Docker
+*.pid
